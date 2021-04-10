@@ -10,10 +10,11 @@
 #include <future>
 #include <QFuture>
 #include "XmlModel.h"
-#include <QDesktopServices>
 #include <QHeaderView>
 #include <QMutex>
 #include <QMutexLocker>
+#include <QFileSelector>
+#include <QProcess>
 
 static const QString excelFitter = "execel (*.xl* )";
 
@@ -232,8 +233,18 @@ void Widget::on_btnXmlStart_clicked()
     m_xmlModel->syncCaculateResult(m_valueForCalc);
     auto outputXmlPath = Config::getInstance().getPath(Config::PathType::OutPutPath)
             +"/" + Config::getInstance().getFileName(Config::FileNames::XmlRead).split('/').last();
-    if( m_xmlModel->saveXmlAs(outputXmlPath))
-        QDesktopServices::openUrl(outputXmlPath);
+    if( m_xmlModel->saveXmlAs(outputXmlPath)){
+        QString strLogPath = outputXmlPath;
+        QProcess showXml(this);
+        showXml.setProgram("notepad");
+        QStringList argument;
+        argument << strLogPath;
+        showXml.setArguments(argument);
+        showXml.start();
+        showXml.waitForStarted(); //等待程序启动
+        showXml.waitForFinished();//等待程序关闭
+
+    }
     else
         QMessageBox::warning(nullptr,"错误" ,"导出失败","确定");
 }
