@@ -31,11 +31,13 @@ INPUT(
 ./debug\xlsxsimpleooxmlfile.o
 ./debug\xlsxcellformula.o
 ./debug\Config.o
+./debug\DelegateCombox.o
 ./debug\ModelColumnAliasConfirm.o
 ./debug\XmlModel.o
 ./debug\main.o
 ./debug\Widget.o
 ./debug\moc_xlsxdocument.o
+./debug\moc_DelegateCombox.o
 ./debug\moc_ModelColumnAliasConfirm.o
 ./debug\moc_Widget.o
 ./debug\moc_XmlModel.o

@@ -18,8 +18,6 @@ public slots:
 private:
     QString m_alias;
     QString m_fullName;
-signals:
-    void onAliasConfirmed(const QString alias , const QString fullName);
 
 };
 
@@ -44,8 +42,17 @@ public:
 
     void init(const QStringList& ordereTemplateNames );
 
+    bool isColumnMappingReady();
+
+
     QStringList getPreparedResultColumnNames();
 
+    const QHash<QString ,QString>& getColumnNameMapping();
+
+    /**
+     * @brief getTemplateColumnNames  , note : template's meaning is the same to the alias
+     * @return
+     */
     QStringList getTemplateColumnNames();
 
     // Header:
@@ -73,7 +80,7 @@ public:
 
 private:
     QMap<int , std::shared_ptr<AliasItem>> m_items;
-    bool isColumnMappingReady();
+    QHash<QString ,QString> m_mapAliasToFullName;
 
 
 };

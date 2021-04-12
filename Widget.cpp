@@ -19,6 +19,7 @@
 #include "ModelColumnAliasConfirm.h"
 #include "XmlModel.h"
 #include "Config.h"
+#include "DelegateCombox.h"
 
 
 static const QString excelFitter = "execel (*.xl* )";
@@ -54,6 +55,8 @@ Widget::Widget(QWidget *parent)
     m_modelAliasConfirm = new ModelColumnAliasConfirm(ui->tableView);
     ui->tableView->setModel(m_modelAliasConfirm);
     ui->tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    auto delegate = new DelegateCombox(ui->tableView);
+    ui->tableView->setItemDelegateForColumn(ModelColumnAliasConfirm::ColumnFullName ,delegate);
     Config::getInstance().registerAliasModel(m_modelAliasConfirm);
     showMaximized();
 
@@ -66,8 +69,7 @@ Widget::~Widget()
 
 void Widget::on_btnStart_clicked()
 {
-    if(!Config::getInstance().getPreparedResultColumnSetting().size()){
-        QMessageBox::warning(this ,"错误","尚未建立模板和结果Excel列的映射关系");
+    if(!m_modelAliasConfirm->isColumnMappingReady()){
         return;
     }
 
@@ -101,11 +103,11 @@ void Widget::on_btnStart_clicked()
     //Insert the data
     int columnWrited = 0;
     for(auto i : Config::getInstance().getTemplateColumnSetting()){
-        if(!Config::getInstance().code(i).isEmpty()){
+        if(!Config::getInstance().aliasToFullName(i).isEmpty()){
             ++columnWrited;
             QVariantList values;
-            values << Config::getInstance().code(i);    //Column head
-            values << mapData.value(i);
+            values << i;    //Column head
+            values << mapData.value(Config::getInstance().aliasToFullName(i));
             for(int i = 1 ; i <= values.size() ; i ++)
                 xlsWriter.write( i, columnWrited ,values.at(i-1));
         }
@@ -174,8 +176,7 @@ void Widget::on_btnXmlPath_clicked()
 }
 void Widget::on_btnXmlStart_clicked()
 {
-    if(!Config::getInstance().getPreparedResultColumnSetting().size()){
-        QMessageBox::warning(this ,"错误","尚未建立模板和结果Excel列的映射关系");
+    if(!m_modelAliasConfirm->isColumnMappingReady()){
         return;
     }
 
@@ -236,7 +237,7 @@ void Widget::resolveAjustedValueInTemplate(const QString filePath)
         QXlsx::Document xlsReader(filePath);
         for(int i = 1 ; i < xlsReader.dimension().rowCount() +1 ; i ++){
             auto keyName = xlsReader.read(KeyRowNum ,i).toString();
-            auto columnNameInResult = Config::getInstance().deCode(keyName);
+            auto columnNameInResult = Config::getInstance().aliasToFullName(keyName);
             auto value = xlsReader.read(ValueRowNum , i).toDouble();
             m_valueForCalc<<QPair<QString,double>{columnNameInResult , value };
         }

@@ -37,16 +37,15 @@ char* Config::QStringToChar(QString s)
     return ptr;
 }
 
-const QString Config::code(const QString &fullColumnName)
+const QString Config::fullColumnNameToAlias(const QString &fullColumnName)
 {
-    return m_codeColumnName.value(fullColumnName,"");
+    return m_modelAlias->getColumnNameMapping().key(fullColumnName,"");
 }
 
-const QString Config::deCode(const QString &shortCOlumnName)
+const QString Config::aliasToFullName(const QString &shortCOlumnName)
 {
-    return m_codeColumnName.key(shortCOlumnName,"");
+    return m_modelAlias->getColumnNameMapping().value(shortCOlumnName,"");
 }
-
 const QString Config::appPath()
 {
     return QCoreApplication::applicationDirPath();
@@ -137,7 +136,7 @@ const QString Config::findFullName(const QString alias)
     if(m_resultColumns.contains(alias))
         return alias;
     auto findFullNameInDb = [&](const QString aliasName){
-        QString sql = QString("SELECT `%1` FROM `%2` WHERE `%3`=`%4`").arg(DbColumnSetting.at(FULLNAME))
+        QString sql = QString("SELECT `%1` FROM `%2` WHERE `%3`='%4'").arg(DbColumnSetting.at(FULLNAME))
                 .arg(ColumnMapTableName).arg(DbColumnSetting.at(ALIAS)).arg(aliasName);
         QSqlQuery query(m_db);
         if(query.exec(sql))
@@ -147,6 +146,39 @@ const QString Config::findFullName(const QString alias)
     };
     auto fullNameInDb = findFullNameInDb(alias);
     return m_resultColumns.contains(fullNameInDb) ? fullNameInDb : "";
+
+}
+
+bool Config::updateAlias(const QString &alias, const QString &fullName)
+{
+    QSqlQuery query(m_db);
+    auto keyExits = [&](const QString key){
+        QString sql = QString("SELECT * from `%1` WHERE `%2`='%3' ")
+                .arg(ColumnMapTableName)
+                .arg(DbColumnSetting.at(ALIAS))
+                .arg(key);
+        if(query.exec(sql))
+            if(query.next())
+                return !query.value(0).isNull();
+        return false;
+    };
+    QString sql;
+    if(keyExits(fullName))
+        sql = QString("UPDATE `%1` SET `%2`='%3' WHERE `%4`='%5' ")
+                .arg(ColumnMapTableName)
+                .arg(DbColumnSetting.at(FULLNAME))
+                .arg(fullName)
+                .arg(DbColumnSetting.at(ALIAS))
+                .arg(alias);
+
+    else
+        sql = QString("INSERT INTO `%1` (`%2`,`%3`) VALUES('%4','%5') ")
+                .arg(ColumnMapTableName)
+                .arg(DbColumnSetting.at(ALIAS))
+                .arg(DbColumnSetting.at(FULLNAME))
+                .arg(alias)
+                .arg(fullName);
+    return query.exec(sql);
 
 }
 
@@ -192,10 +224,7 @@ const QStringList Config::getTemplateColumnSetting()
     return m_templateColumns;
 }
 
-const QStringList Config::getPreparedResultColumnSetting()
-{
-    return  m_modelAlias ? m_modelAlias->getPreparedResultColumnNames() : QStringList();
-}
+
 
 const QStringList &Config::getOrignalResultCoumnSetting()
 {
@@ -221,13 +250,13 @@ bool Config::initDb()
             return false;
         QSqlQuery query(m_db);
         QString sql =QString("\
-        CREATE TABLE %1 (\
-            `%2`	TEXT NOT NULL UNIQUE,\
-            `%3`	TEXT NOT NULL,\
-            PRIMARY KEY(`Alias`)\
-        );").arg(ColumnMapTableName).arg(DbColumnSetting.at(ALIAS).arg(DbColumnSetting.at(FULLNAME)));
-        if(!query.exec(sql))
-            return false;
+                             CREATE TABLE %1 (\
+                                 `%2`	TEXT NOT NULL UNIQUE,\
+                                 `%3`	TEXT NOT NULL,\
+                                 PRIMARY KEY(`Alias`)\
+                                 );").arg(ColumnMapTableName).arg(DbColumnSetting.at(ALIAS).arg(DbColumnSetting.at(FULLNAME)));
+                if(!query.exec(sql))
+                return false;
         return true;
     };
     QFile file(m_dbPath);

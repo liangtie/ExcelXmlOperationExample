@@ -1,5 +1,6 @@
 #include "ModelColumnAliasConfirm.h"
 #include "Config.h"
+#include <QMessageBox>
 
 ModelColumnAliasConfirm::ModelColumnAliasConfirm(QObject *parent)
     : QAbstractTableModel(parent)
@@ -26,6 +27,11 @@ QStringList ModelColumnAliasConfirm::getPreparedResultColumnNames()
 
 }
 
+const QHash<QString, QString> &ModelColumnAliasConfirm::getColumnNameMapping()
+{
+    return m_mapAliasToFullName;
+}
+
 QStringList ModelColumnAliasConfirm::getTemplateColumnNames()
 {
     QStringList alias;
@@ -36,9 +42,15 @@ QStringList ModelColumnAliasConfirm::getTemplateColumnNames()
 
 bool ModelColumnAliasConfirm::isColumnMappingReady()
 {
-    for(auto ll = m_items.begin() ; ll != m_items.end() ; ++ll)
-        if(ll.value()->isFullNameEmpty())
+    m_mapAliasToFullName.clear();
+    for(auto ll = m_items.begin() ; ll != m_items.end() ; ++ll){
+        m_mapAliasToFullName.insert(ll.value()->alias() , ll.value()->fullName());
+        if(ll.value()->isFullNameEmpty()){
+            QMessageBox::warning(nullptr ,"错误","尚未建立模板和结果Excel列的映射关系");
+            m_mapAliasToFullName.clear();
             return false;
+        }
+    }
     return true;
 }
 
@@ -83,6 +95,9 @@ QVariant ModelColumnAliasConfirm::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid())
         return QVariant();
+    if(Qt::BackgroundRole == role && m_items.value(index.row())->fullName().isEmpty()){
+        return QColor(255, 0, 0);
+    }
     switch (role) {
     case Qt::DisplayRole :
     case Qt::EditRole:
@@ -105,9 +120,16 @@ QVariant ModelColumnAliasConfirm::data(const QModelIndex &index, int role) const
 bool ModelColumnAliasConfirm::setData(const QModelIndex &index, const QVariant &value, int role)
 {
     if (data(index, role) != value) {
-        // FIXME: Implement me!
-        emit dataChanged(index, index, QVector<int>() << role);
-        return true;
+        if(ColumnFullName == index.column())
+            switch (role) {
+            case Qt::DisplayRole :
+            case Qt::EditRole:
+                m_items.value(index.row())->onFullNameEdited(value.toString());
+                emit dataChanged(index, index, QVector<int>() << role);
+                auto holeRow = this->index(index.row() ,0);
+                emit dataChanged(holeRow , index, QVector<int>() << Qt::BackgroundRole);
+                return true;
+            }
     }
     return false;
 }
@@ -172,6 +194,6 @@ bool AliasItem::isFullNameEmpty()
 void AliasItem::onFullNameEdited(const QString &fullName)
 {
     m_fullName = fullName;
-    emit onAliasConfirmed(m_alias , m_fullName);
+    Config::getInstance().updateAlias(m_alias ,m_fullName);
 }
 
