@@ -1,6 +1,5 @@
 #include "Widget.h"
 #include "ui_Widget.h"
-#include "Config.h"
 #include <QFileDialog>
 #include <QDebug>
 #include <QMessageBox>
@@ -8,14 +7,19 @@
 #include <QCoreApplication>
 #include <future>
 #include <QFuture>
-#include "XmlModel.h"
 #include <QHeaderView>
 #include <QMutex>
 #include <QMutexLocker>
 #include <QFileSelector>
 #include <QProcess>
 #include <QDesktopServices>
+#include <QHeaderView>
+
 #include "xlsxdocument.h"
+#include "ModelColumnAliasConfirm.h"
+#include "XmlModel.h"
+#include "Config.h"
+
 
 static const QString excelFitter = "execel (*.xl* )";
 
@@ -38,15 +42,20 @@ Widget::Widget(QWidget *parent)
     //Init xml config
     setMinimumWidth(900);
 
-    m_xmlModel = new XmlModel(ui->treeView);
-    ui->treeView->setModel(m_xmlModel);
+    m_modelXmlConfirm = new XmlModel(ui->treeView);
+    ui->treeView->setModel(m_modelXmlConfirm);
     ui->spinRowReadTemp->setValue(Config::getInstance().getRowNoReadTemplateStart());
     connect(ui->spinRowReadTemp, QOverload<int>::of(&QSpinBox::valueChanged),
             [=](int i){
         Config::getInstance().setRowNoReadTemplateStart(i);
-        if(!ui->editTempletePath->text().isEmpty())
-            resolveTemplate(ui->editTempletePath->text());
     });
+
+    //Init columns confirm model
+    m_modelAliasConfirm = new ModelColumnAliasConfirm(ui->tableView);
+    ui->tableView->setModel(m_modelAliasConfirm);
+    ui->tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    Config::getInstance().registerAliasModel(m_modelAliasConfirm);
+    showMaximized();
 
 }
 
@@ -57,6 +66,10 @@ Widget::~Widget()
 
 void Widget::on_btnStart_clicked()
 {
+    if(!Config::getInstance().getPreparedResultColumnSetting().size()){
+        QMessageBox::warning(this ,"错误","尚未建立模板和结果Excel列的映射关系");
+        return;
+    }
 
     //Start obtain target infor
     QMap<QString,QVariantList> mapData;
@@ -75,16 +88,11 @@ void Widget::on_btnStart_clicked()
         }
         for(int  i = 1 ; i <= xlsReader.dimension().lastColumn() ; ++i ){
             auto key = xlsReader.read(1 ,i).toString();
-            if(!Config::getInstance().getFullNameColumns().contains(key))
-                continue;
-            else{
-                QVariantList data_list;
-                for(int j = ui->spinRowStartRead->value() ; j <= ui->spinRowEndRead->value() ; j++)
-                    data_list<<xlsReader.read(j,i).toString();
-                mapData.insert(key ,data_list);
-            }
+            QVariantList data_list;
+            for(int j = ui->spinRowStartRead->value() ; j <= ui->spinRowEndRead->value() ; j++)
+                data_list<<xlsReader.read(j,i).toString();
+            mapData.insert(key ,data_list);
         }
-
 
     }
     if(!mapData.size())
@@ -92,7 +100,7 @@ void Widget::on_btnStart_clicked()
     QXlsx::Document xlsWriter;
     //Insert the data
     int columnWrited = 0;
-    for(auto i : Config::getInstance().getFullNameColumns()){
+    for(auto i : Config::getInstance().getTemplateColumnSetting()){
         if(!Config::getInstance().code(i).isEmpty()){
             ++columnWrited;
             QVariantList values;
@@ -118,8 +126,8 @@ void Widget::on_btnRead_clicked()
     if(!fileToRead.isEmpty()){
         ui->editRead->setText(fileToRead);
         Config::getInstance().setLastFileOpen(Config::FileNames::ExcelRead, fileToRead);
+        Config::getInstance().onMachineResultChanged(fileToRead);
     }
-
     auto resolveExcelInfor = [&]( const QString filePath){
         QXlsx::Document xlsReader(filePath);
         int foundFirst = 0;
@@ -160,20 +168,27 @@ void Widget::on_btnXmlPath_clicked()
     if(!xmlToRead.isEmpty()){
         ui->editXmlPath->setText(xmlToRead);
         Config::getInstance().setLastFileOpen(Config::FileNames::XmlRead, xmlToRead);
-        m_xmlModel->loadXml(xmlToRead);
+        m_modelXmlConfirm->loadXml(xmlToRead);
     }
 
 }
 void Widget::on_btnXmlStart_clicked()
 {
+    if(!Config::getInstance().getPreparedResultColumnSetting().size()){
+        QMessageBox::warning(this ,"错误","尚未建立模板和结果Excel列的映射关系");
+        return;
+    }
+
+    resolveAjustedValueInTemplate(Config::getInstance().getFileName(Config::FileNames::TemplateExcel));
+
     if(!m_valueForCalc.size()){
         QMessageBox::warning(nullptr,"错误" ,"请先设置有效的模板路径或模板读取行数");
         return;
     }
-    m_xmlModel->syncCaculateResult(m_valueForCalc);
+    m_modelXmlConfirm->syncCaculateResult(m_valueForCalc);
     auto outputXmlPath = Config::getInstance().getPath(Config::PathType::OutPutPath)
             +"/" + Config::getInstance().getFileName(Config::FileNames::XmlRead).split('/').last();
-    if( m_xmlModel->saveXmlAs(outputXmlPath)){
+    if( m_modelXmlConfirm->saveXmlAs(outputXmlPath)){
         auto workerShowXml = [](const QString){
 
         };
@@ -197,34 +212,37 @@ void Widget::on_btnTempletePath_clicked()
     auto TempleteToRead = QFileDialog::getOpenFileName(nullptr,"选择模板Excel文件路径",Config::getInstance().getLastDirOpen(Config::FileNames::TemplateExcel) ,excelFitter);
     if(TempleteToRead.isEmpty())
         return;
-
     ui->editTempletePath->setText(TempleteToRead);
     Config::getInstance().setLastFileOpen(Config::FileNames::TemplateExcel, TempleteToRead);
-    resolveTemplate(TempleteToRead);
-
+    Config::getInstance().onTemplatePathChanged(TempleteToRead);
 
 }
 
-void Widget::resolveTemplate(const QString filePath)
+void Widget::on_btnConfirm_clicked()
 {
-    //    m_promiseXmlConfig = new std::promise<bool>;
+    if(!Config::getInstance().initColumnMapping()){
+        QMessageBox::warning(this ,"错误","请先配置模板及结果路径");
+        return;
+    }
+
+}
+
+void Widget::resolveAjustedValueInTemplate(const QString filePath)
+{
     auto resolveExcutor = [&](const QString filePath){
         const int KeyRowNum = 1;
         int ValueRowNum = ui->spinRowReadTemp->value();
         m_valueForCalc.clear();
         QXlsx::Document xlsReader(filePath);
-                for(int i = 1 ; i < xlsReader.dimension().rowCount() +1 ; i ++){
-                    auto keyName = xlsReader.read(KeyRowNum ,i).toString();
-                    if(Config::getInstance().getShortNameColumns().contains(keyName)){
-                        auto fullKeyName = Config::getInstance().deCode(keyName);
-                        auto value = xlsReader.read(ValueRowNum , i).toDouble();
-                        m_valueForCalc<<QPair<QString,double>{fullKeyName , value };
-                    }
-                }
+        for(int i = 1 ; i < xlsReader.dimension().rowCount() +1 ; i ++){
+            auto keyName = xlsReader.read(KeyRowNum ,i).toString();
+            auto columnNameInResult = Config::getInstance().deCode(keyName);
+            auto value = xlsReader.read(ValueRowNum , i).toDouble();
+            m_valueForCalc<<QPair<QString,double>{columnNameInResult , value };
+        }
 
     };
     resolveExcutor(filePath);
-    QMessageBox::information(nullptr,"提示","解析Excel结束");
 
 }
 

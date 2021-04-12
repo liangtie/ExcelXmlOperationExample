@@ -11,6 +11,7 @@ QT_END_NAMESPACE
 
 class QtAxExcelEngine;
 class XmlModel;
+class ModelColumnAliasConfirm;
 namespace QXlsx{
 class Document;
 }
@@ -29,11 +30,13 @@ private slots:
     void on_btnXmlPath_clicked();
     void on_btnXmlStart_clicked();
     void on_btnTempletePath_clicked();
+    void on_btnConfirm_clicked();
 
 private:
     Ui::Widget *ui;
-    XmlModel* m_xmlModel;
+    XmlModel* m_modelXmlConfirm;
+    ModelColumnAliasConfirm* m_modelAliasConfirm;
     QVector<QPair<QString ,double>> m_valueForCalc;
-    void resolveTemplate(const QString);
+    void resolveAjustedValueInTemplate(const QString);
 };
 #endif // WIDGET_H

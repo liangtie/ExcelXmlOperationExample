@@ -19,12 +19,16 @@ include($$PWD/xlsx/qtxlsx.pri)
 
 SOURCES += \
     Config.cpp \
+    DelegateCombox.cpp \
+    ModelColumnAliasConfirm.cpp \
     XmlModel.cpp \
     main.cpp \
     Widget.cpp
 
 HEADERS += \
     Config.h \
+    DelegateCombox.h \
+    ModelColumnAliasConfirm.h \
     Widget.h \
     XmlModel.h
 
