@@ -21,8 +21,8 @@ public:
     enum class PathType{
         OutPutPath,
     };
-
     ~Config();
+    bool isTemplateChanged(const QStringList& columnHeaders);
     static Config& getInstance();
     const QStringList getFullNameColumns();
     const QStringList getShortNameColumns();
@@ -46,6 +46,7 @@ private:
     void setConfig(QString qstrnodename,QString qstrkeyname,QVariant qvarvalue);
     QVariant getConfig(const QString nodeName ,const QString keyName , const QString defaultValue = "");
     void setFileName(FileNames , const QString& fileName);
+    QStringList measureResultHeaderTraits(const QString& measureResultPath);
     QSettings m_setting;
     QMap<FileNames,QString> m_mapFileNames;
     QHash<QString, QString> m_codeColumnName;

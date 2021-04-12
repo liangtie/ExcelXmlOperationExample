@@ -1,6 +1,5 @@
 #include "Widget.h"
 #include "ui_Widget.h"
-#include "QtAxExcelEngine.h"
 #include "Config.h"
 #include <QFileDialog>
 #include <QDebug>
@@ -15,6 +14,8 @@
 #include <QMutexLocker>
 #include <QFileSelector>
 #include <QProcess>
+#include <QDesktopServices>
+#include "xlsxdocument.h"
 
 static const QString excelFitter = "execel (*.xl* )";
 
@@ -26,10 +27,9 @@ enum Marks{
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
-    , ui(new Ui::Widget),m_promise(nullptr),m_promiseXmlConfig(nullptr)
+    , ui(new Ui::Widget)
 {
     ui->setupUi(this);
-    m_readEngine = new QtAxExcelEngine();
     if(Config::getInstance().getPath(Config::PathType::OutPutPath).isEmpty()){
         Config::getInstance().setPath(Config::PathType::OutPutPath , QCoreApplication::applicationDirPath());
     }
@@ -52,72 +52,44 @@ Widget::Widget(QWidget *parent)
 
 Widget::~Widget()
 {
-    safeDelate(m_readEngine);
-    safeDelate(m_promise);
-    safeDelate(m_promiseXmlConfig);
     delete ui;
 }
 
 void Widget::on_btnStart_clicked()
 {
-    if(!m_promise)
-        return;
-    auto finishedResolve = m_promise->get_future().get();
-    safeDelate(m_promise);
-    if(!finishedResolve)
-        return;
 
+    //Start obtain target infor
     QMap<QString,QVariantList> mapData;
-    int bret;
-    bret = m_readEngine-> initialize(false);
-    if (!bret)
     {
-        fprintf(stderr, "initialize excel fail.\n");
-    }
-    
-    //测试相对路径打开，
-    if(Config::getInstance().getFileName(Config::FileNames::ExcelRead).isEmpty()){
-        QMessageBox::warning(this , "错误" ,"待读取的源Excel为空","确定");
-        return;
-    }
-    bret = m_readEngine-> open(Config::getInstance().getFileName(Config::FileNames::ExcelRead),false);
-    if (!bret)
-    {
-        QMessageBox::warning(this , "错误" ,"读取Excel失败","确定");
-        return;
-    }
-    
-    bret =  m_readEngine->loadSheet(1, false);
-    if (!bret)
-    {
-        QMessageBox::warning(this , "错误" ,"加载Excel失败","确定");
-        return;
-    }
-    for(int  i = 1 ; i <= m_readEngine->columnCount(); ++i ){
-        if(!Config::getInstance().getFullNameColumns().contains(m_readEngine->getCell(1 ,i) .toString()))
-            continue;
-        else{
-            auto key = m_readEngine->getCell(1 ,i) .toString();
-            QVariantList data_list;
-            for(int j = ui->spinRowStartRead->value() ; j <= ui->spinRowEndRead->value() ; j++)
-                data_list<<m_readEngine->getCell(j,i).toString();
-            mapData.insert(key ,data_list);
+        auto xlsName = Config::getInstance().getFileName(Config::FileNames::ExcelRead);
+        QFile fileCheck (xlsName);
+        if(!fileCheck.exists()){
+            QMessageBox::warning(this , "错误" ,"不存在待读取的Excel","确定");
+            return;
         }
-    }
+        QXlsx::Document xlsReader(xlsName,this);
+        if (!xlsReader.selectSheet(xlsReader.sheetNames().first()))
+        {
+            QMessageBox::warning(this , "错误" ,"加载Excel失败","确定");
+            return;
+        }
+        for(int  i = 1 ; i <= xlsReader.dimension().lastColumn() ; ++i ){
+            auto key = xlsReader.read(1 ,i).toString();
+            if(!Config::getInstance().getFullNameColumns().contains(key))
+                continue;
+            else{
+                QVariantList data_list;
+                for(int j = ui->spinRowStartRead->value() ; j <= ui->spinRowEndRead->value() ; j++)
+                    data_list<<xlsReader.read(j,i).toString();
+                mapData.insert(key ,data_list);
+            }
+        }
 
-    if(!mapData.size()){
-        m_readEngine->finalize();
+
+    }
+    if(!mapData.size())
         return;
-    }
-    
-    //Add new data sheet
-    bret = m_readEngine->newOne();
-    if (!bret)
-    {
-        fprintf(stderr, "Open excel fail.\n");
-    }
-    m_readEngine->insertSheet(Config::getInstance().getFileName(Config::FileNames::ExcelRead));
-
+    QXlsx::Document xlsWriter;
     //Insert the data
     int columnWrited = 0;
     for(auto i : Config::getInstance().getFullNameColumns()){
@@ -127,17 +99,15 @@ void Widget::on_btnStart_clicked()
             values << Config::getInstance().code(i);    //Column head
             values << mapData.value(i);
             for(int i = 1 ; i <= values.size() ; i ++)
-                m_readEngine->setCell(i ,columnWrited , values.at(i-1));
+                xlsWriter.write( i, columnWrited ,values.at(i-1));
         }
     }
 
     //Format the output filename
     QString outputExcelName = Config::getInstance().getPath(Config::PathType::OutPutPath);
     outputExcelName +=QString("/" + QString("output_")+  Config::getInstance().getFileName(Config::FileNames::ExcelRead).split('/').last());
-    m_readEngine->saveAs(outputExcelName);
-    
-    m_readEngine->finalize();
-    QMessageBox::information(this, "提示" ,"导出完成");
+    xlsWriter.saveAs(outputExcelName);
+    QDesktopServices::openUrl(outputExcelName);
     
 }
 
@@ -151,48 +121,28 @@ void Widget::on_btnRead_clicked()
     }
 
     auto resolveExcelInfor = [&]( const QString filePath){
-        m_readEngine-> initialize(false);
-        if(m_readEngine->open(filePath,false)){
-            if(m_readEngine->loadSheet(1 ,false)){
-                int foundFirst = 0;
-                if("序号" == m_readEngine->getCell( 1 ,1).toString()){
-                    for(int i = 1 ; i < m_readEngine->rowCount() +1 ; i ++){
-                        qDebug() <<  m_readEngine->getCell( i ,1).toString();
-                        if( StartNo == m_readEngine->getCell( i ,1).toInt()){
-                            ui->spinRowStartRead->setValue(i);
-                            foundFirst = i;
-                        }
-                        if(EndNo ==  m_readEngine->getCell( i ,1).toInt())
-                            ui->spinRowEndRead->setValue(i);
-                    }
+        QXlsx::Document xlsReader(filePath);
+        int foundFirst = 0;
+        if("序号" == xlsReader.read(1 ,1).toString()){
+            for(int i = 1 ; i < xlsReader.dimension().rowCount() +1 ; i ++){
+                qDebug() <<  xlsReader.read( i ,1).toString();
+                if( StartNo == xlsReader.read( i ,1).toInt()){
+                    ui->spinRowStartRead->setValue(i);
+                    foundFirst = i;
                 }
-
-            }
-            else{
-                qDebug() << "Load excel failed";
-                if(m_promise)
-                    m_promise->set_value(false);
-
+                if(EndNo ==  xlsReader.read( i ,1).toInt()){
+                    ui->spinRowEndRead->setValue(i);
+                    break;
+                }
             }
         }
-        else{
-            qDebug() << "Open excel failed";
-            if(m_promise)
-                m_promise->set_value(false);
-        }
-        m_readEngine->finalize();
-        if(m_promise)
-            m_promise->set_value_at_thread_exit(true);
+
     };
 
     if(!fileToRead.contains(".xl"))
         return;
-    if(!m_promise)
-        m_promise = new std::promise<bool> ;
-    std::thread resolveWorker(resolveExcelInfor,fileToRead);
-    resolveWorker.detach();
+    resolveExcelInfor(fileToRead);
 
-    
 }
 
 void Widget::on_btnWrite_clicked()
@@ -216,16 +166,6 @@ void Widget::on_btnXmlPath_clicked()
 }
 void Widget::on_btnXmlStart_clicked()
 {
-#if 0
-    if(!m_promiseXmlConfig)
-        return;
-    if(!m_promiseXmlConfig->get_future().get()){
-        QMessageBox::warning(nullptr,"错误","解析模板错误", "确定");
-        safeDelate(m_promiseXmlConfig);
-        return;
-    }
-    safeDelate(m_promiseXmlConfig);
-#endif
     if(!m_valueForCalc.size()){
         QMessageBox::warning(nullptr,"错误" ,"请先设置有效的模板路径或模板读取行数");
         return;
@@ -234,6 +174,9 @@ void Widget::on_btnXmlStart_clicked()
     auto outputXmlPath = Config::getInstance().getPath(Config::PathType::OutPutPath)
             +"/" + Config::getInstance().getFileName(Config::FileNames::XmlRead).split('/').last();
     if( m_xmlModel->saveXmlAs(outputXmlPath)){
+        auto workerShowXml = [](const QString){
+
+        };
         QString strLogPath = outputXmlPath;
         QProcess showXml(this);
         showXml.setProgram("notepad");
@@ -241,8 +184,8 @@ void Widget::on_btnXmlStart_clicked()
         argument << strLogPath;
         showXml.setArguments(argument);
         showXml.start();
-        showXml.waitForStarted(); //等待程序启动
-        showXml.waitForFinished();//等待程序关闭
+        showXml.waitForStarted();
+        showXml.waitForFinished();
 
     }
     else
@@ -264,47 +207,24 @@ void Widget::on_btnTempletePath_clicked()
 
 void Widget::resolveTemplate(const QString filePath)
 {
-    safeDelate(m_promiseXmlConfig);
-//    m_promiseXmlConfig = new std::promise<bool>;
+    //    m_promiseXmlConfig = new std::promise<bool>;
     auto resolveExcutor = [&](const QString filePath){
         const int KeyRowNum = 1;
         int ValueRowNum = ui->spinRowReadTemp->value();
         m_valueForCalc.clear();
-
-        m_readEngine-> initialize(false);
-        if(m_readEngine->open(filePath,false)){
-            if(m_readEngine->loadSheet(1 ,false)){
-                for(int i = 1 ; i < m_readEngine->columnCount() +1 ; i ++){
-                    auto keyName = m_readEngine->getCell(KeyRowNum ,i).toString();
+        QXlsx::Document xlsReader(filePath);
+                for(int i = 1 ; i < xlsReader.dimension().rowCount() +1 ; i ++){
+                    auto keyName = xlsReader.read(KeyRowNum ,i).toString();
                     if(Config::getInstance().getShortNameColumns().contains(keyName)){
                         auto fullKeyName = Config::getInstance().deCode(keyName);
-                        auto value = m_readEngine->getCell(ValueRowNum , i).toDouble();
+                        auto value = xlsReader.read(ValueRowNum , i).toDouble();
                         m_valueForCalc<<QPair<QString,double>{fullKeyName , value };
                     }
                 }
-                if(m_promiseXmlConfig)
-                    m_promiseXmlConfig->set_value_at_thread_exit(true);
-
-            }
-            else{
-                qDebug() << "Load excel failed";
-                if(m_promiseXmlConfig)
-                    m_promiseXmlConfig->set_value_at_thread_exit(false);
-
-            }
-        }
-        else{
-            qDebug() << "Open excel failed";
-            if(m_promiseXmlConfig)
-                m_promiseXmlConfig->set_value_at_thread_exit(false);
-        }
-        m_readEngine->finalize();
 
     };
     resolveExcutor(filePath);
     QMessageBox::information(nullptr,"提示","解析Excel结束");
-//    std::thread resolveWorker(resolveExcutor,filePath);
-//    resolveWorker.detach();
 
 }
 

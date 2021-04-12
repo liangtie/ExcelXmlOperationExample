@@ -13,6 +13,9 @@ static const QString g_nodeColumn = "ColumnSetting";
 static const QString g_keyFullColumn = "SortedFullColumns";
 static const QString g_keyAbbrColumn = "SortedAbbrColumns";
 
+static const QStringList invalidHeaders = QStringList{"序号", "时间","PixelDistance","测试结果",
+        "任务号" ,"工件号"};
+
 //Deafaults
 //简称是全称的子集，简称和全称从第一个元素开始一一对应，默认带有简称的列才是有效列
 #if 0   //
@@ -69,6 +72,7 @@ const QString Config::deCode(const QString &shortCOlumnName)
     return m_codeColumnName.key(shortCOlumnName,"");
 }
 
+
 void Config::setConfig(QString qstrnodename,QString qstrkeyname,QVariant qvarvalue)
 {
     m_setting.setValue(QString("%1/%2").arg(qstrnodename).arg(qstrkeyname), qvarvalue);
@@ -108,6 +112,11 @@ const QString Config::getFileName(Config::FileNames name)
 void Config::setFileName(Config::FileNames name, const QString &fileName)
 {
     m_mapFileNames.insert(name ,fileName);
+}
+
+QStringList Config::measureResultHeaderTraits(const QString &measureResultPath)
+{
+
 }
 
 void Config::setPath(Config::PathType type, const QString &path)
@@ -160,6 +169,11 @@ const QStringList Config::getFullNameColumns()
 }
 
 Config::~Config()
+{
+
+}
+
+bool Config::isTemplateChanged(const QStringList &columnHeaders)
 {
 
 }

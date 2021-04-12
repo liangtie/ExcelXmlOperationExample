@@ -19,14 +19,12 @@ include($$PWD/xlsx/qtxlsx.pri)
 
 SOURCES += \
     Config.cpp \
-    QtAxExcelEngine.cpp \
     XmlModel.cpp \
     main.cpp \
     Widget.cpp
 
 HEADERS += \
     Config.h \
-    QtAxExcelEngine.h \
     Widget.h \
     XmlModel.h
 

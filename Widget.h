@@ -11,6 +11,9 @@ QT_END_NAMESPACE
 
 class QtAxExcelEngine;
 class XmlModel;
+namespace QXlsx{
+class Document;
+}
 class Widget : public QWidget
 {
     Q_OBJECT
@@ -28,12 +31,7 @@ private slots:
     void on_btnTempletePath_clicked();
 
 private:
-    QtAxExcelEngine* m_readEngine;
     Ui::Widget *ui;
-    std::promise<bool>* m_promise;
-    std::promise<bool>* m_promiseXmlConfig;
-    QMutex  m_excelMutex;
-    QMutex m_xmlMutex;
     XmlModel* m_xmlModel;
     QVector<QPair<QString ,double>> m_valueForCalc;
     void resolveTemplate(const QString);
