@@ -11,6 +11,7 @@
 #include <QMutex>
 #include <QMutexLocker>
 #include <QFileSelector>
+#include <QDir>
 #include <QProcess>
 #include <QDesktopServices>
 #include <QHeaderView>
@@ -38,7 +39,12 @@ Widget::Widget(QWidget *parent)
     if(Config::getInstance().getPath(Config::PathType::OutPutPath).isEmpty()){
         Config::getInstance().setPath(Config::PathType::OutPutPath , QCoreApplication::applicationDirPath());
     }
-    ui->editWrite->setText(Config::getInstance().getPath(Config::PathType::OutPutPath));
+    QDir checkDir(Config::getInstance().getPath(Config::PathType::OutPutPath));
+    ui->editWrite->setText(checkDir.exists()?
+                           Config::getInstance().getPath(Config::PathType::OutPutPath) :
+                           Config::getInstance().appPath());
+    if(!checkDir.exists())
+        Config::getInstance().setPath(Config::PathType::OutPutPath ,Config::getInstance().appPath());
 
     //Init xml config
     setMinimumWidth(900);
@@ -46,18 +52,35 @@ Widget::Widget(QWidget *parent)
     m_modelXmlConfirm = new XmlModel(ui->treeView);
     ui->treeView->setModel(m_modelXmlConfirm);
     ui->spinRowReadTemp->setValue(Config::getInstance().getRowNoReadTemplateStart());
-    connect(ui->spinRowReadTemp, QOverload<int>::of(&QSpinBox::valueChanged),
-            [=](int i){
-        Config::getInstance().setRowNoReadTemplateStart(i);
-    });
-
     //Init columns confirm model
     m_modelAliasConfirm = new ModelColumnAliasConfirm(ui->tableView);
     ui->tableView->setModel(m_modelAliasConfirm);
     ui->tableView->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     auto delegate = new DelegateCombox(ui->tableView);
     ui->tableView->setItemDelegateForColumn(ModelColumnAliasConfirm::ColumnFullName ,delegate);
+    ui->tableView->setEditTriggers(QAbstractItemView::CurrentChanged|
+                                   QAbstractItemView::DoubleClicked|
+                                   QAbstractItemView::SelectedClicked);
     Config::getInstance().registerAliasModel(m_modelAliasConfirm);
+    ui->lableInfor->setTextFormat(Qt::RichText);
+    connect(ui->spinRowReadTemp, QOverload<int>::of(&QSpinBox::valueChanged),
+            [=](int i){
+        Config::getInstance().setRowNoReadTemplateStart(i);
+    });
+    connect(m_modelAliasConfirm ,&ModelColumnAliasConfirm::updateStatus ,[&](const QString &str){
+        ui->lableInfor->setText(str);
+    });
+    connect(ui->cmbSymbol ,  QOverload<int>::of(&QComboBox::currentIndexChanged) ,[&](int idx){
+        Config::getInstance().enableXmlWriteNegative( 0 == idx);
+    });
+    connect(ui->spinRate ,QOverload<int>::of(&QSpinBox::valueChanged) ,[&](int times){
+        Config::getInstance().setXmlWriteTimes(times);
+    });
+
+    //Init Status
+    m_modelAliasConfirm->isColumnMappingReady();
+    ui->cmbSymbol->setCurrentIndex(1);
+    ui->spinRate->setValue(1);
     showMaximized();
 
 }
@@ -127,6 +150,7 @@ void Widget::on_btnRead_clicked()
     auto fileToRead = QFileDialog::getOpenFileName(nullptr,"选择要读取的Excel", Config::getInstance().getLastDirOpen(Config::FileNames::ExcelRead) ,excelFitter);
     if(!fileToRead.isEmpty()){
         ui->editRead->setText(fileToRead);
+        ui->textEdit->append("机台结果路径:" + fileToRead);
         Config::getInstance().setLastFileOpen(Config::FileNames::ExcelRead, fileToRead);
         Config::getInstance().onMachineResultChanged(fileToRead);
     }
@@ -169,6 +193,7 @@ void Widget::on_btnXmlPath_clicked()
     auto xmlToRead = QFileDialog::getOpenFileName(nullptr,"选择Xml文件路径",Config::getInstance().getLastDirOpen(Config::FileNames::XmlRead) ,("xml(*.xml)"));
     if(!xmlToRead.isEmpty()){
         ui->editXmlPath->setText(xmlToRead);
+        ui->textEdit->append("Xml配置路径:" + xmlToRead);
         Config::getInstance().setLastFileOpen(Config::FileNames::XmlRead, xmlToRead);
         m_modelXmlConfirm->loadXml(xmlToRead);
     }
@@ -190,18 +215,19 @@ void Widget::on_btnXmlStart_clicked()
     auto outputXmlPath = Config::getInstance().getPath(Config::PathType::OutPutPath)
             +"/" + Config::getInstance().getFileName(Config::FileNames::XmlRead).split('/').last();
     if( m_modelXmlConfirm->saveXmlAs(outputXmlPath)){
-        auto workerShowXml = [](const QString){
+        auto workerShowXml = [&](const QString strLogPath){
+            QProcess showXml;
+            showXml.setProgram("notepad");
+            QStringList argument;
+            argument << strLogPath;
+            showXml.setArguments(argument);
+            showXml.start();
+            showXml.waitForStarted();
+            showXml.waitForFinished();
 
         };
-        QString strLogPath = outputXmlPath;
-        QProcess showXml(this);
-        showXml.setProgram("notepad");
-        QStringList argument;
-        argument << strLogPath;
-        showXml.setArguments(argument);
-        showXml.start();
-        showXml.waitForStarted();
-        showXml.waitForFinished();
+        std::thread worker(workerShowXml , outputXmlPath);
+        worker.detach();
 
     }
     else
@@ -216,6 +242,8 @@ void Widget::on_btnTempletePath_clicked()
     ui->editTempletePath->setText(TempleteToRead);
     Config::getInstance().setLastFileOpen(Config::FileNames::TemplateExcel, TempleteToRead);
     Config::getInstance().onTemplatePathChanged(TempleteToRead);
+    ui->textEdit->append("模板路径:" + TempleteToRead);
+
 
 }
 
@@ -235,11 +263,16 @@ void Widget::resolveAjustedValueInTemplate(const QString filePath)
         int ValueRowNum = ui->spinRowReadTemp->value();
         m_valueForCalc.clear();
         QXlsx::Document xlsReader(filePath);
-        for(int i = 1 ; i < xlsReader.dimension().rowCount() +1 ; i ++){
+        for(int i = 1 ; i < xlsReader.dimension().columnCount() +1 ; i ++){
             auto keyName = xlsReader.read(KeyRowNum ,i).toString();
             auto columnNameInResult = Config::getInstance().aliasToFullName(keyName);
-            auto value = xlsReader.read(ValueRowNum , i).toDouble();
-            m_valueForCalc<<QPair<QString,double>{columnNameInResult , value };
+            auto targetCell = xlsReader.cellAt(ValueRowNum ,i);
+            if(targetCell)
+                if(targetCell->value().isValid()){
+                    qDebug() << targetCell->value();
+                    auto value = targetCell->value().toDouble();
+                    m_valueForCalc<<QPair<QString,double>{columnNameInResult , value };
+                }
         }
 
     };

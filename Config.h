@@ -8,6 +8,11 @@
 
 #define safeDelate(ptr) { if(ptr) delete ptr; ptr = nullptr; }
 
+struct XmlWriteSetting{
+    bool negative;
+    int times;
+};
+
 class ModelColumnAliasConfirm;
 class Config
 {
@@ -29,7 +34,11 @@ public:
     enum {
         ExcelKeyNo = 1,
     };
+
     ~Config();
+    const XmlWriteSetting& xmlWriteConfig();
+    void enableXmlWriteNegative(bool isNegative);
+    void setXmlWriteTimes(int times);
     /**
      * @brief findAliasFullName
      * @param alias
@@ -79,11 +88,13 @@ public:
     const QString fullColumnNameToAlias( const QString& fullColumnName);
     const QString aliasToFullName( const QString& shortCOlumnName );
     const QString appPath();
+    static QString htmlColorText(const QString content ,const QString color);
 
 private:
     QSettings m_setting;
     QMap<FileNames,QString> m_mapFileNames;
     ModelColumnAliasConfirm* m_modelAlias;
+    XmlWriteSetting m_xmlWriteConfig;
     QSqlDatabase m_db;
     const QString SqlLiteFileName = "ColumnMap.db";
     const QString ColumnMapTableName = "ColumnMapping";

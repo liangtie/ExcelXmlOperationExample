@@ -51,6 +51,11 @@ const QString Config::appPath()
     return QCoreApplication::applicationDirPath();
 }
 
+QString Config::htmlColorText(const QString content, const QString color)
+{
+    return QString("<font color=\"%1\">%2</font> ").arg(color).arg(content);
+}
+
 
 void Config::setConfig(QString qstrnodename,QString qstrkeyname,QVariant qvarvalue)
 {
@@ -120,10 +125,25 @@ Config &Config::getInstance()
     return instance;
 }
 
+void Config::enableXmlWriteNegative(bool isNegative)
+{
+    m_xmlWriteConfig.negative = isNegative;
+}
+
+void Config::setXmlWriteTimes(int times)
+{
+    m_xmlWriteConfig.times = times;
+}
+
 Config::~Config()
 {
     m_db.close();
 
+}
+
+const XmlWriteSetting &Config::xmlWriteConfig()
+{
+    return m_xmlWriteConfig;
 }
 
 void Config::registerAliasModel(ModelColumnAliasConfirm *model)
@@ -163,7 +183,7 @@ bool Config::updateAlias(const QString &alias, const QString &fullName)
         return false;
     };
     QString sql;
-    if(keyExits(fullName))
+    if(keyExits(alias))
         sql = QString("UPDATE `%1` SET `%2`='%3' WHERE `%4`='%5' ")
                 .arg(ColumnMapTableName)
                 .arg(DbColumnSetting.at(FULLNAME))
@@ -232,7 +252,7 @@ const QStringList &Config::getOrignalResultCoumnSetting()
 }
 
 Config::Config() :m_setting("config.ini",QSettings::IniFormat),
-    m_modelAlias(nullptr)
+    m_modelAlias(nullptr),m_xmlWriteConfig{false ,1}
 {
     m_dbPath = appPath() + "/" +SqlLiteFileName;
     m_db = QSqlDatabase::addDatabase("QSQLITE",QUuid::createUuid().toString());
@@ -254,7 +274,7 @@ bool Config::initDb()
                                  `%2`	TEXT NOT NULL UNIQUE,\
                                  `%3`	TEXT NOT NULL,\
                                  PRIMARY KEY(`Alias`)\
-                                 );").arg(ColumnMapTableName).arg(DbColumnSetting.at(ALIAS).arg(DbColumnSetting.at(FULLNAME)));
+                                 );").arg(ColumnMapTableName).arg(DbColumnSetting.at(ALIAS)).arg(DbColumnSetting.at(FULLNAME));
                 if(!query.exec(sql))
                 return false;
         return true;

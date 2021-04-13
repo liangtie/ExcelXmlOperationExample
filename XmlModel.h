@@ -105,7 +105,6 @@ private:
     QDomElement m_rootItem;
     QMap<QString , QPair<QStandardItem*, QDomElement>> m_elementMap;
 
-
 signals:
 
 };

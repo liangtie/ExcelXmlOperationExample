@@ -81,6 +81,8 @@ public:
 private:
     QMap<int , std::shared_ptr<AliasItem>> m_items;
     QHash<QString ,QString> m_mapAliasToFullName;
+signals:
+    void updateStatus(const QString&);
 
 
 };

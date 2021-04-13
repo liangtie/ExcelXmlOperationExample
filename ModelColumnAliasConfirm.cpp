@@ -14,6 +14,7 @@ void ModelColumnAliasConfirm::init(const QStringList &ordereTemplateNames)
     for(int i = 0 ; i < ordereTemplateNames.size() ; i ++)
         m_items.insert(i , std::make_shared<AliasItem>(ordereTemplateNames.at(i)) );
     endResetModel();
+    isColumnMappingReady();
 }
 
 QStringList ModelColumnAliasConfirm::getPreparedResultColumnNames()
@@ -42,15 +43,20 @@ QStringList ModelColumnAliasConfirm::getTemplateColumnNames()
 
 bool ModelColumnAliasConfirm::isColumnMappingReady()
 {
+    if(!m_items.size()){
+        emit updateStatus(Config::htmlColorText( "未核对量测项目" ,"#ff0000"));
+        return false;
+    }
     m_mapAliasToFullName.clear();
     for(auto ll = m_items.begin() ; ll != m_items.end() ; ++ll){
         m_mapAliasToFullName.insert(ll.value()->alias() , ll.value()->fullName());
         if(ll.value()->isFullNameEmpty()){
-            QMessageBox::warning(nullptr ,"错误","尚未建立模板和结果Excel列的映射关系");
             m_mapAliasToFullName.clear();
+            emit updateStatus(Config::htmlColorText( "有未映射的量测项目" ,"#ff0000"));
             return false;
         }
     }
+    emit updateStatus(Config::htmlColorText( "没有未映射的量测项目" ,"#00ff00"));
     return true;
 }
 
@@ -113,7 +119,6 @@ QVariant ModelColumnAliasConfirm::data(const QModelIndex &index, int role) const
         }
     }
     }
-
     return QVariant();
 }
 
@@ -128,6 +133,7 @@ bool ModelColumnAliasConfirm::setData(const QModelIndex &index, const QVariant &
                 emit dataChanged(index, index, QVector<int>() << role);
                 auto holeRow = this->index(index.row() ,0);
                 emit dataChanged(holeRow , index, QVector<int>() << Qt::BackgroundRole);
+                isColumnMappingReady();
                 return true;
             }
     }
@@ -138,7 +144,9 @@ Qt::ItemFlags ModelColumnAliasConfirm::flags(const QModelIndex &index) const
 {
     if (!index.isValid())
         return Qt::NoItemFlags;
-    Qt::ItemFlags  flags{ Qt::ItemIsEditable,Qt::ItemIsSelectable ,Qt::ItemIsEnabled};
+    Qt::ItemFlags  flags{ Qt::ItemIsSelectable ,Qt::ItemIsEnabled};
+    if(ColumnFullName == index.column())
+        flags |= Qt::ItemIsEditable;
     return flags;
 }
 
@@ -146,24 +154,28 @@ bool ModelColumnAliasConfirm::insertRows(int row, int count, const QModelIndex &
 {
     beginInsertRows(parent, row, row + count - 1);
     endInsertRows();
+    return true;
 }
 
 bool ModelColumnAliasConfirm::insertColumns(int column, int count, const QModelIndex &parent)
 {
     beginInsertColumns(parent, column, column + count - 1);
     endInsertColumns();
+    return true;
 }
 
 bool ModelColumnAliasConfirm::removeRows(int row, int count, const QModelIndex &parent)
 {
     beginRemoveRows(parent, row, row + count - 1);
     endRemoveRows();
+    return true;
 }
 
 bool ModelColumnAliasConfirm::removeColumns(int column, int count, const QModelIndex &parent)
 {
     beginRemoveColumns(parent, column, column + count - 1);
     endRemoveColumns();
+    return true;
 }
 
 AliasItem::AliasItem(const QString &aliasName):

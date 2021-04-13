@@ -6,54 +6,57 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>873</width>
-    <height>600</height>
+    <width>985</width>
+    <height>702</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Widget</string>
   </property>
-  <layout class="QHBoxLayout" name="layMain" stretch="1,2,2">
-   <property name="spacing">
-    <number>0</number>
-   </property>
+  <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,4">
    <item>
     <widget class="QWidget" name="widgetLeft" native="true">
      <layout class="QVBoxLayout" name="verticalLayout_4">
       <item>
        <widget class="QGroupBox" name="boxOutPut">
         <property name="title">
-         <string>必填配置</string>
+         <string>量测项目核对</string>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout">
          <item>
-          <layout class="QGridLayout" name="gridLayout_2">
-           <item row="0" column="0">
-            <widget class="QPushButton" name="btnRead">
-             <property name="text">
-              <string>选择机台结果Excel</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLineEdit" name="editRead"/>
-           </item>
-           <item row="1" column="0">
-            <widget class="QPushButton" name="btnTempletePath">
-             <property name="text">
-              <string>选择视觉模板Excel</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QLineEdit" name="editTempletePath"/>
-           </item>
-          </layout>
+          <widget class="QFrame" name="framCheckItem">
+           <layout class="QHBoxLayout" name="layCheckItem">
+            <item>
+             <layout class="QGridLayout" name="gridLayout_2">
+              <item row="1" column="1">
+               <widget class="QLineEdit" name="editTempletePath"/>
+              </item>
+              <item row="1" column="0">
+               <widget class="QPushButton" name="btnTempletePath">
+                <property name="text">
+                 <string>选择视觉模板Excel</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QLineEdit" name="editRead"/>
+              </item>
+              <item row="0" column="0">
+               <widget class="QPushButton" name="btnRead">
+                <property name="text">
+                 <string>选择机台结果Excel</string>
+                </property>
+               </widget>
+              </item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
          </item>
          <item>
           <widget class="QPushButton" name="btnConfirm">
            <property name="text">
-            <string>量测项目核对(必须)</string>
+            <string>开始核对</string>
            </property>
           </widget>
          </item>
@@ -134,13 +137,54 @@
         <layout class="QVBoxLayout" name="verticalLayout_5">
          <item>
           <layout class="QGridLayout" name="gridLayout_3">
+           <item row="0" column="0">
+            <widget class="QPushButton" name="btnXmlPath">
+             <property name="text">
+              <string>选择Xml配置文件</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="editXmlPath"/>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="label_2">
+             <property name="text">
+              <string>设置倍率</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QComboBox" name="cmbSymbol">
+             <item>
+              <property name="text">
+               <string>负号</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>正号</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="label">
+             <property name="text">
+              <string>设置正负号</string>
+             </property>
+            </widget>
+           </item>
            <item row="1" column="1">
             <widget class="QSpinBox" name="spinRowReadTemp">
+             <property name="minimum">
+              <number>1</number>
+             </property>
              <property name="maximum">
-              <number>120</number>
+              <number>9999</number>
              </property>
              <property name="value">
-              <number>42</number>
+              <number>1</number>
              </property>
             </widget>
            </item>
@@ -151,13 +195,13 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="1">
-            <widget class="QLineEdit" name="editXmlPath"/>
-           </item>
-           <item row="0" column="0">
-            <widget class="QPushButton" name="btnXmlPath">
-             <property name="text">
-              <string>选择Xml配置文件</string>
+           <item row="4" column="1">
+            <widget class="QSpinBox" name="spinRate">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>9999</number>
              </property>
             </widget>
            </item>
@@ -199,6 +243,37 @@
        </spacer>
       </item>
       <item>
+       <widget class="QLabel" name="lableInfor">
+        <property name="font">
+         <font>
+          <pointsize>14</pointsize>
+         </font>
+        </property>
+        <property name="text">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::RichText</enum>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacer">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
        <widget class="QLineEdit" name="editWrite"/>
       </item>
       <item>
@@ -212,10 +287,45 @@
     </widget>
    </item>
    <item>
-    <widget class="QTableView" name="tableView"/>
-   </item>
-   <item>
-    <widget class="QTreeView" name="treeView"/>
+    <layout class="QVBoxLayout" name="verticalLayout_6" stretch="6,1">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="QWidget" name="widgetView" native="true">
+       <layout class="QHBoxLayout" name="horizontalLayout">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QTableView" name="tableView"/>
+        </item>
+        <item>
+         <widget class="QTreeView" name="treeView"/>
+        </item>
+       </layout>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextEdit" name="textEdit">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>

@@ -5,6 +5,7 @@
 #include <QStack>
 #include <QDebug>
 #include <QTreeView>
+#include "Config.h"
 
 Q_DECLARE_METATYPE(QDomCharacterData);
 static const QString &nodeTypeName(QDomNode::NodeType nodeType) {
@@ -125,7 +126,10 @@ void XmlModel::syncCaculateResult(const QVector<QPair<QString, double> > &result
             auto reseverdString =  targetTreeItem->data(Role_NumberReserved).toString();
             auto lastCalcValue = targetTreeItem->data(Role_NumberForCalc).value<double>();
             //这里改正负
-            double result = lastCalcValue + i.second ;
+            double vlaueChanged = i.second * Config::getInstance().xmlWriteConfig().times;
+            if(Config::getInstance().xmlWriteConfig().negative)
+                vlaueChanged*=-1;
+            double result = lastCalcValue + vlaueChanged;
             auto targetString = reseverdString + QString("%1").arg(QString::number(result ,'g' ,DoubelPrecious));
             auto characterDat =  targetTreeItem->data(Role_NodeString).value<QDomCharacterData>();
             characterDat.setData(targetString);
