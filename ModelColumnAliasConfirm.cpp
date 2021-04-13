@@ -17,6 +17,12 @@ void ModelColumnAliasConfirm::init(const QStringList &ordereTemplateNames)
     isColumnMappingReady();
 }
 
+void ModelColumnAliasConfirm::onTemplateOrResultPathChanged()
+{
+    m_items.clear();
+    isColumnMappingReady();
+}
+
 QStringList ModelColumnAliasConfirm::getPreparedResultColumnNames()
 {
     QStringList fullNames;

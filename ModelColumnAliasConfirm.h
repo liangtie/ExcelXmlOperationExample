@@ -42,6 +42,8 @@ public:
 
     void init(const QStringList& ordereTemplateNames );
 
+    void onTemplateOrResultPathChanged();
+
     bool isColumnMappingReady();
 
 

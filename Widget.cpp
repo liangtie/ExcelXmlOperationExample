@@ -26,9 +26,13 @@
 static const QString excelFitter = "execel (*.xl* )";
 
 static QStringList targetFullNameColumns;
-enum Marks{
+/**
+ * @brief The TemplateMarks enum marks in the template excel
+ */
+enum TemplateMarks{
     StartNo = 1,
-    EndNo = 10,
+    VerticalHeaderColumn = 1,
+    ReservedRowCount = 20,
 };
 
 Widget::Widget(QWidget *parent)
@@ -41,8 +45,8 @@ Widget::Widget(QWidget *parent)
     }
     QDir checkDir(Config::getInstance().getPath(Config::PathType::OutPutPath));
     ui->editWrite->setText(checkDir.exists()?
-                           Config::getInstance().getPath(Config::PathType::OutPutPath) :
-                           Config::getInstance().appPath());
+                               Config::getInstance().getPath(Config::PathType::OutPutPath) :
+                               Config::getInstance().appPath());
     if(!checkDir.exists())
         Config::getInstance().setPath(Config::PathType::OutPutPath ,Config::getInstance().appPath());
 
@@ -158,15 +162,19 @@ void Widget::on_btnRead_clicked()
         QXlsx::Document xlsReader(filePath);
         int foundFirst = 0;
         if("序号" == xlsReader.read(1 ,1).toString()){
-            for(int i = 1 ; i < xlsReader.dimension().rowCount() +1 ; i ++){
-                qDebug() <<  xlsReader.read( i ,1).toString();
-                if( StartNo == xlsReader.read( i ,1).toInt()){
+            for(int i = 1 ; i < xlsReader.dimension().rowCount() +ReservedRowCount ; i ++){
+                qDebug() <<  xlsReader.read( i ,VerticalHeaderColumn).toString();
+                if( StartNo == xlsReader.read( i ,VerticalHeaderColumn).toInt()){
                     ui->spinRowStartRead->setValue(i);
                     foundFirst = i;
                 }
-                if(EndNo ==  xlsReader.read( i ,1).toInt()){
-                    ui->spinRowEndRead->setValue(i);
-                    break;
+                if(foundFirst){
+                    qDebug() <<"Trying to fetch  row "<<i;
+                    if( xlsReader.read(i ,VerticalHeaderColumn).isNull() || (!xlsReader.read(i,VerticalHeaderColumn).isValid())){
+                        ui->spinRowEndRead->setValue(i -1);
+                        qDebug() <<"Setting the end row to "<<i-1;
+                        break;
+                    }
                 }
             }
         }
@@ -243,8 +251,6 @@ void Widget::on_btnTempletePath_clicked()
     Config::getInstance().setLastFileOpen(Config::FileNames::TemplateExcel, TempleteToRead);
     Config::getInstance().onTemplatePathChanged(TempleteToRead);
     ui->textEdit->append("模板路径:" + TempleteToRead);
-
-
 }
 
 void Widget::on_btnConfirm_clicked()
